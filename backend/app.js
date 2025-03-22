@@ -6,21 +6,28 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 
+// Import des routes
+const authRoutes = require("./routes/authRoutes"); // Routes Auth
+
 // Import du middleware d'erreur
-// const errorMiddleware = require("./middleware/errorMiddleware"); 
+const errorMiddleware = require("./middlewares/errorMiddleware");
 
 const app = express();
-connectDB(); // Connexion à la base de données
+connectDB(); // Connexion à MongoDB
 
-// Middleware
+// Middlewares
 app.use(express.json());
 app.use(cors());
 
-// Servir le dossier "uploads" comme dossier statique
-//app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Routes
+app.use("/api/auth", authRoutes); // Routes Authentification (Login, Register)
+
+
+// Servir les fichiers uploadés
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Middleware global pour gérer les erreurs
-//app.use(errorMiddleware);
+app.use(errorMiddleware);
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
