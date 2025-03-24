@@ -7,30 +7,41 @@ const userSchema = new mongoose.Schema(
     {
         name: {
             type: String,
-            required: [true, "Name Is Required"],
+            required: [true, "Name is required"],
+            trim: true,
         },
         lastName: {
             type: String,
+            required: [true, "Last name is required"],
+            trim: true,
         },
         phone: {
             type: String,
+            validate: {
+                validator: function (value) {
+                    return /^[0-9]{10,15}$/.test(value); // Vérification de 10 à 15 chiffres
+                },
+                message: "Invalid phone number",
+            },
         },
         email: {
             type: String,
-            required: [true, "Email is Required"],
+            required: [true, "Email is required"],
             unique: true,
-            validate: validator.isEmail,
+            trim: true,
+            validate: [validator.isEmail, "Invalid email format"],
         },
         password: {
             type: String,
             required: [true, "Password is required"],
-            minlength: [6, "Password length should be greater than 6 characters"],
-            select: true,
+            minlength: [6, "Password must be at least 6 characters"],
+            select: false, // Ne pas renvoyer le mot de passe par défaut
         },
-        role: { type: String, 
-                enum: ["patient", "doctor", "admin"], 
-                default: "patient" },
-
+        role: { 
+            type: String, 
+            enum: ["patient", "doctor", "admin"], 
+            default: "patient" 
+        },
         resetPasswordToken: String,
         resetPasswordExpire: Date,
     },
@@ -39,7 +50,7 @@ const userSchema = new mongoose.Schema(
 
 // Middleware pour hacher le mot de passe avant de sauvegarder
 userSchema.pre("save", async function (next) {
-    if (!this.isModified("password")) return next(); // Ne pas hacher si le mot de passe n'est pas modifié
+    if (!this.isModified("password")) return next();
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     next();
@@ -52,9 +63,11 @@ userSchema.methods.comparePassword = async function (userPassword) {
 
 // Méthode pour créer un token JWT
 userSchema.methods.createJWT = function () {
-    return JWT.sign({ userId: this._id, role: this.role }, process.env.SECRET, {
-        expiresIn: process.env.JWT_EXPIRE,
-    });
+    return JWT.sign(
+        { userId: this._id, role: this.role },
+        process.env.JWT_SECRET || "defaultsecret", // Fallback pour éviter les erreurs en dev
+        { expiresIn: process.env.JWT_EXPIRE || "1d" }
+    );
 };
 
 module.exports = mongoose.model("User", userSchema);

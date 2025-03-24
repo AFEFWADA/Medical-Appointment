@@ -1,26 +1,34 @@
 const UserModel = require("../models/UserModel");
+const bcrypt = require("bcryptjs");
 
-const registerController = async function(req, res, next) {
-    const { name, email, password } = req.body;
-    if (!name) {
-        return next("Name is required");
-    }
-    if (!email) {
-        return next("Email is required");
-    }
-    if (!password || password.length < 6) {
-        return next("Password is required and should be greater than 6 characters");
-    }
-
+const registerController = async (req, res, next) => {
     try {
+        const { name, email, password, lastName } = req.body;
+
+        // Vérification des champs
+        if (!name) return res.status(400).json({ success: false, message: "Name is required" });
+        
+        if (!lastName) return res.status(400).json({ success: false, message: "Last name is required" });
+
+        if (!email) return res.status(400).json({ success: false, message: "Email is required" });
+
+        if (!password || password.length < 6) {
+            return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+        }
+
+        // Vérifier si l'utilisateur existe déjà
         const existingUser = await UserModel.findOne({ email });
         if (existingUser) {
-            return next("Email already registered. Please log in");
+            return res.status(400).json({ success: false, message: "Email already registered. Please log in" });
         }
-        const user = await UserModel.create({ name, email, password });
+
+        // Hacher le mot de passe
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const user = await UserModel.create({  email, name ,lastName , password: hashedPassword });
+
         // Générer un token
         const token = user.createJWT();
-        res.status(201).send({
+        res.status(201).json({
             success: true,
             message: "User created successfully",
             user: {
@@ -35,38 +43,49 @@ const registerController = async function(req, res, next) {
     }
 };
 
-const loginController = async function (req, res, next) {
-    const { email, password } = req.body;
-    if (!email || !password) {
-        return next("Please provide all fields");
-    }
+const loginController = async (req, res, next) => {
     try {
-        // Trouver l'utilisateur par e-mail
-        const user = await UserModel.findOne({ email }).select("+password role");
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ success: false, message: "Please provide all fields" });
+        }
+
+        // Trouver l'utilisateur
+        const user = await UserModel.findOne({ email }).select("+password +role");
         if (!user) {
-            return next("Invalid username or password");
+            return res.status(401).json({ success: false, message: "Invalid email" });
         }
 
-        // Comparer le mot de passe
-        const isMatch = await user.comparePassword(password);
-        if (!isMatch) {
-            return next("Invalid username or password");
+        console.log("Comparing passwords:", password, "vs", user.password);
+
+        // Comparer les mots de passe
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        console.log("Password match result:", passwordMatch);
+
+        if (!passwordMatch) {
+            return res.status(401).json({ success: false, message: "Invalid password" });
         }
 
-        user.password = undefined; // Ne pas inclure le mot de passe dans la réponse
+        // Générer un token
         const token = user.createJWT();
-
         res.status(200).json({
             success: true,
-            message: "Login successfully",
-            user,
+            message: "Login successful",
+            user: {
+                name: user.name,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+            },
             token,
-            role: user.role,
         });
     } catch (error) {
+        console.error("Server error:", error);
         next(error);
     }
 };
+
 
 module.exports = {
     registerController,

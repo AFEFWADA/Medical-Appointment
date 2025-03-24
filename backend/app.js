@@ -1,35 +1,45 @@
-const dotenv = require("dotenv");
-dotenv.config({ path: "./.env" });
-
-const connectDB = require("./Config/db");
 const express = require("express");
+const dotenv = require("dotenv");
+const mongoose = require("mongoose");
 const cors = require("cors");
-const path = require("path");
 
-// Import des routes
-const authRoutes = require("./routes/authRoutes"); // Routes Auth
-
-// Import du middleware d'erreur
-const errorMiddleware = require("./middlewares/errorMiddleware");
+dotenv.config();
 
 const app = express();
-connectDB(); // Connexion à MongoDB
 
-// Middlewares
-app.use(express.json());
+// Vérification du fichier .env
+if (!process.env.MONGO_URI) {
+    console.error("❌ MONGO_URI est manquant dans le fichier .env !");
+    process.exit(1);
+}
+console.log("🔍 MONGO_URI:", process.env.MONGO_URI);
+
+// Middleware
 app.use(cors());
+app.use(express.json());
 
-// Routes
-app.use("/api/auth", authRoutes); // Routes Authentification (Login, Register)
+// Connexion à MongoDB
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log("✅ MongoDB connected successfully"))
+    .catch(err => {
+        console.error("❌ MongoDB connection error:", err);
+        process.exit(1);
+    });
 
+// Importation des routes
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
 
-// Servir les fichiers uploadés
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Définition des routes
+app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 
-// Middleware global pour gérer les erreurs
-app.use(errorMiddleware);
-
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(` Server is running on port: ${port}...`);
+// Middleware de gestion des erreurs
+app.use((err, req, res, next) => {
+    console.error("❌ Erreur serveur :", err);
+    res.status(500).json({ message: "Erreur interne du serveur" });
 });
+
+// Lancement du serveur
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

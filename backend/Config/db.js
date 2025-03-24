@@ -7,7 +7,9 @@ dotenv.config({ path: "./.env" });
 // Connexion a MongoDB avec gestion des erreurs améliorée
 const connectDB = async () => {
   try {
+
     await mongoose.connect(process.env.DB, {
+  
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
