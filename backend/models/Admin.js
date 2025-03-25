@@ -1,8 +1,21 @@
 const mongoose = require("mongoose");
 const User = require("./UserModel");
 
-const AdminSchema = new mongoose.Schema({
-  permissions: [String]  // Liste des permissions spécifiques à l'admin
-});
+const AdminSchema = new mongoose.Schema(
+  {
+    permissions: {
+      type: [String], 
+      required: [true, "Permissions are required"],
+      validate: {
+        validator: function (permissions) {
+          return permissions.length > 0;
+        },
+        message: "Admin must have at least one permission",
+      },
+    },
+  },
+  { timestamps: true }
+);
 
-module.exports = User.discriminator("admin", AdminSchema);
+const Admin = User.discriminator("admin", AdminSchema);
+module.exports = Admin;

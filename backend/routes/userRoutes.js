@@ -1,4 +1,5 @@
 const express = require("express");
+
 const { userAuth, isAdmin, isDoctor, isPatient } = require("../middlewares/authMiddleware");
 
 const router = express.Router();

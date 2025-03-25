@@ -10,7 +10,8 @@ const userAuth = async (req, res, next) => {
     try {
         const payload = JWT.verify(token, process.env.JWT_SECRET);
         req.user = { userId: payload.userId, role: payload.role };
-        console.log("Authenticated user:", req.user);
+
+        console.log("Authenticated user:", req.user); // 🔍 Vérification du rôle et userId
         next();
     } catch (error) {
         if (error.name === "TokenExpiredError") {
@@ -22,7 +23,6 @@ const userAuth = async (req, res, next) => {
     }
 };
 
-// Middleware pour vérifier si l'utilisateur est admin
 const isAdmin = (req, res, next) => {
     if (!req.user || req.user.role !== "admin") {
         return res.status(403).json({ message: "You are not authorized as admin" });
@@ -30,7 +30,6 @@ const isAdmin = (req, res, next) => {
     next();
 };
 
-// Middleware pour vérifier si l'utilisateur est un médecin (doctor)
 const isDoctor = (req, res, next) => {
     if (!req.user || req.user.role !== "doctor") {
         return res.status(403).json({ message: "You are not authorized as a doctor" });
@@ -38,7 +37,6 @@ const isDoctor = (req, res, next) => {
     next();
 };
 
-// Middleware pour vérifier si l'utilisateur est un patient
 const isPatient = (req, res, next) => {
     if (!req.user || req.user.role !== "patient") {
         return res.status(403).json({ message: "You are not authorized as a patient" });

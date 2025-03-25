@@ -15,15 +15,6 @@ const userSchema = new mongoose.Schema(
             required: [true, "Last name is required"],
             trim: true,
         },
-        phone: {
-            type: String,
-            validate: {
-                validator: function (value) {
-                    return /^[0-9]{10,15}$/.test(value); // Vérification de 10 à 15 chiffres
-                },
-                message: "Invalid phone number",
-            },
-        },
         email: {
             type: String,
             required: [true, "Email is required"],
@@ -42,10 +33,11 @@ const userSchema = new mongoose.Schema(
             enum: ["patient", "doctor", "admin"], 
             default: "patient" 
         },
-        resetPasswordToken: String,
-        resetPasswordExpire: Date,
     },
-    { timestamps: true }
+    { 
+        timestamps: true,
+        discriminatorKey: "role" // Clé pour différencier les sous-modèles
+    }
 );
 
 // Middleware pour hacher le mot de passe avant de sauvegarder

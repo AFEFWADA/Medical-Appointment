@@ -1,47 +1,70 @@
 const UserModel = require("../models/UserModel");
 const bcrypt = require("bcryptjs");
+const Doctor = require("../models/Doctor");
+const Patient = require("../models/Patient");
+const Admin = require("../models/Admin");
 
 const registerController = async (req, res, next) => {
     try {
-        const { name, email, password, lastName } = req.body;
+        const { name, lastName, email, password, role, specialty, experience, address, phone, permissions } = req.body;
 
-        // Vérification des champs
-        if (!name) return res.status(400).json({ success: false, message: "Name is required" });
-        
-        if (!lastName) return res.status(400).json({ success: false, message: "Last name is required" });
-
-        if (!email) return res.status(400).json({ success: false, message: "Email is required" });
-
-        if (!password || password.length < 6) {
-            return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+        if (!name || !lastName || !email || !password) {
+            return res.status(400).json({ success: false, message: "All fields are required" });
         }
 
-        // Vérifier si l'utilisateur existe déjà
         const existingUser = await UserModel.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ success: false, message: "Email already registered. Please log in" });
         }
 
-        // Hacher le mot de passe
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const user = await UserModel.create({  email, name ,lastName , password: hashedPassword });
+        let user;
+        if (role === "doctor") {
+            if (!specialty || !experience) {
+                return res.status(400).json({ success: false, message: "Specialty and experience are required for doctors" });
+            }
+            user = await Doctor.create({ name, lastName, email, password, role, specialty, experience });
 
-        // Générer un token
+        } else if (role === "patient") {
+            if (!address || !phone) {
+                return res.status(400).json({ success: false, message: "Address and phone number are required for patients" });
+            }
+            usesr = await Patient.create({ name, lastName, email, password, role, address, phone });
+
+        } else if (role === "admin") {
+            if (!permissions || permissions.length === 0) {
+                return res.status(400).json({ success: false, message: "Admin must have at least one permission" });
+            }
+            user = await Admin.create({ name, lastName, email, password, role, permissions });
+
+        } else {
+            return res.status(400).json({ success: false, message: "Invalid role" });
+        }
+
         const token = user.createJWT();
         res.status(201).json({
             success: true,
-            message: "User created successfully",
+            message: "User registered successfully",
             user: {
                 name: user.name,
                 lastName: user.lastName,
                 email: user.email,
+                role: user.role,
+                specialty: user.specialty || null,
+                experience: user.experience || null,
+                address: user.address || null,
+                phone: user.phone || null,
+                permissions: user.permissions || null,
             },
             token,
         });
+
     } catch (error) {
         next(error);
     }
 };
+
+module.exports = { registerController };
+
 
 const loginController = async (req, res, next) => {
     try {
@@ -51,15 +74,18 @@ const loginController = async (req, res, next) => {
             return res.status(400).json({ success: false, message: "Please provide all fields" });
         }
 
-        // Trouver l'utilisateur
-        const user = await UserModel.findOne({ email }).select("+password +role");
+        // Trouver l'utilisateur avec le mot de passe
+        const user = await UserModel.findOne({ email }).select("+password role");
+
         if (!user) {
             return res.status(401).json({ success: false, message: "Invalid email" });
         }
 
-        console.log("Comparing passwords:", password, "vs", user.password);
+        // Vérification des logs
+        console.log("User found:", user);
+        console.log("Stored hashed password:", user.password);
 
-        // Comparer les mots de passe
+        // Comparaison du mot de passe
         const passwordMatch = await bcrypt.compare(password, user.password);
         console.log("Password match result:", passwordMatch);
 
