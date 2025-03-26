@@ -8,8 +8,8 @@ const registerController = async (req, res, next) => {
     try {
         const { name, lastName, email, password, role, specialty, experience, address, phone, permissions } = req.body;
 
-        if (!name || !lastName || !email || !password) {
-            return res.status(400).json({ success: false, message: "All fields are required" });
+        if (!name || !lastName || !email || !password || !role) {
+            return res.status(400).json({ success: false, message: "Name, lastName, email, password, and role are required" });
         }
 
         const existingUser = await UserModel.findOne({ email });
@@ -19,21 +19,12 @@ const registerController = async (req, res, next) => {
 
         let user;
         if (role === "doctor") {
-            if (!specialty || !experience) {
-                return res.status(400).json({ success: false, message: "Specialty and experience are required for doctors" });
-            }
             user = await Doctor.create({ name, lastName, email, password, role, specialty, experience });
 
         } else if (role === "patient") {
-            if (!address || !phone) {
-                return res.status(400).json({ success: false, message: "Address and phone number are required for patients" });
-            }
-            usesr = await Patient.create({ name, lastName, email, password, role, address, phone });
+            user = await Patient.create({ name, lastName, email, password, role, address, phone });
 
         } else if (role === "admin") {
-            if (!permissions || permissions.length === 0) {
-                return res.status(400).json({ success: false, message: "Admin must have at least one permission" });
-            }
             user = await Admin.create({ name, lastName, email, password, role, permissions });
 
         } else {
@@ -41,6 +32,8 @@ const registerController = async (req, res, next) => {
         }
 
         const token = user.createJWT();
+        console.log("register token:", token);
+
         res.status(201).json({
             success: true,
             message: "User registered successfully",
@@ -62,6 +55,7 @@ const registerController = async (req, res, next) => {
         next(error);
     }
 };
+
 
 module.exports = { registerController };
 
@@ -92,6 +86,8 @@ const loginController = async (req, res, next) => {
         if (!passwordMatch) {
             return res.status(401).json({ success: false, message: "Invalid password" });
         }
+
+        console.log("token:", user.createJWT());
 
         // Générer un token
         const token = user.createJWT();

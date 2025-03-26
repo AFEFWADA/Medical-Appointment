@@ -1,14 +1,14 @@
 const mongoose = require("mongoose");
 const User = require("./UserModel");
 
+
 const AdminSchema = new mongoose.Schema(
   {
     permissions: {
-      type: [String], 
-      required: [true, "Permissions are required"],
+      type: [String],
       validate: {
         validator: function (permissions) {
-          return permissions.length > 0;
+          return !permissions || permissions.length > 0;
         },
         message: "Admin must have at least one permission",
       },
