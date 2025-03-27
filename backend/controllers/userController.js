@@ -3,38 +3,39 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 
-// Récupérer tous les utilisateurs
+// Récupérer tous les utilisateurs (admin uniquement)
 const getAllUsers = async (req, res) => {
     try {
-        const users = await UserModel.find().select('-password'); // Ne pas inclure le mot de passe dans la réponse
-        res.status(200).json({
-            success: true,
-            count: users.length,
-            data: users,
-        });
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ success: false, message: "Access denied" });
+        }
+
+        const users = await UserModel.find().select('-password');
+        res.status(200).json({ success: true, count: users.length, data: users });
     } catch (error) {
         console.error("Error fetching users:", error);
-        res.status(500).json({
-            success: false,
-            message: "Server error",
-        });
+        res.status(500).json({ success: false, message: "Server error" });
     }
 };
 
-// Récupérer un utilisateur par ID
+// Récupérer un utilisateur par ID (admin et docteur)
 const getUserById = async (req, res) => {
     try {
         const { id } = req.params;
-        // Vérifier si l'ID est valide
-        if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ success: false, message: "Invalid user ID" });
         }
-        // Rechercher l'utilisateur par ID
+
         const user = await UserModel.findById(id).select("-password");
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
-        // Retourner les données utilisateur
+
+        // Seul un admin ou un docteur peut voir un patient
+        if (req.user.role === "doctor" && user.role !== "patient") {
+            return res.status(403).json({ success: false, message: "Access denied" });
+        }
+
         res.status(200).json({ success: true, user });
     } catch (error) {
         console.error("Error fetching user:", error);
@@ -42,25 +43,17 @@ const getUserById = async (req, res) => {
     }
 };
 
-// Mettre à jour le profil de l'utilisateur
+// Mettre à jour le profil de l'utilisateur (tous les rôles)
 const updateProfileController = async (req, res) => {
     try {
-        const { name, lastName, job, email, location } = req.body;
-
-        // Récupérer l'utilisateur depuis la base de données
+        const { name, lastName, specialty, email, location } = req.body;
         const user = await UserModel.findById(req.user.userId).select("+password");
+
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
 
-        // Mettre à jour les champs seulement s'ils sont fournis
-        user.name = name !== undefined ? name : user.name;
-        user.lastName = lastName !== undefined ? lastName : user.lastName;
-        user.job = job !== undefined ? job : user.job;
-        user.location = location !== undefined ? location : user.location;
-
-        // Vérification et mise à jour de l'email
-        if (email !== undefined && email.trim() !== "") {
+        if (email && email.trim() !== "" && email !== user.email) {
             const emailExists = await UserModel.findOne({ email });
             if (emailExists && emailExists._id.toString() !== user._id.toString()) {
                 return res.status(400).json({ success: false, message: "Email already in use" });
@@ -68,38 +61,29 @@ const updateProfileController = async (req, res) => {
             user.email = email;
         }
 
-        // Mettre à jour le mot de passe seulement s'il est fourni
-        //if (password && password.trim() !== "") {
-            // Hachage du mot de passe avant de le sauvegarder
-          //  user.password = await bcrypt.hash(password, 10);
+        if (name) user.name = name;
+        if (lastName) user.lastName = lastName;
+        if (specialty) user.specialty = specialty;
+        if (location) user.location = location;
+        if (req.file) user.img = req.file.path;
 
-            //console.log(password)
-       // }
-
-        // Mettre à jour l'image si un fichier est fourni
-        if (req.file) {
-            user.img = req.file.path;
-        }
-
-        // Sauvegarder les modifications
         await user.save();
-        console.log("Updated user:", user);
-        // Générer un nouveau token JWT
-        const token = user.createJWT();
 
-        // Réponse avec les données mises à jour et le token
+        const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+
         res.status(200).json({
             success: true,
             message: "Profile updated successfully",
-            token, // Nouveau token
+            token,
             user: {
                 id: user._id,
                 name: user.name,
                 lastName: user.lastName,
                 email: user.email,
-                job: user.job,
+                specialty: user.specialty,
                 location: user.location,
                 img: user.img,
+                role: user.role,
             },
         });
     } catch (error) {
@@ -107,55 +91,58 @@ const updateProfileController = async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to update profile" });
     }
 };
-const updateUserController = async (req, res, next) => {
+
+// Mettre à jour un utilisateur (Admin seulement)
+const updateUserController = async (req, res) => {
     try {
-        // Vérifiez si le rôle est présent et s'il est valide
-        if (req.body.role && !["user", "admin"].includes(req.body.role)) {
-            return res.status(400).json({
-                message: "Invalid role. Role must be 'user' or 'admin'.",
-            });
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Access denied" });
         }
 
-        // Mettre à jour l'utilisateur
+        const validRoles = ["patient", "doctor", "admin"];
+        if (req.body.role && !validRoles.includes(req.body.role)) {
+            return res.status(400).json({ message: "Invalid role. Must be 'patient', 'doctor', or 'admin'." });
+        }
+
         const user = await UserModel.findByIdAndUpdate(req.params.id, req.body, {
             new: true,
-            runValidators: true, // Cela garantit que les validations du schéma s'appliquent
+            runValidators: true,
         });
 
         if (!user) {
-            return res.status(404).json({
-                message: "User not found.",
-            });
+            return res.status(404).json({ message: "User not found." });
         }
 
-        res.status(200).json({
-            message: "User Updated Successfully!",
-            data: {
-                user,
-            },
-        });
-    } catch (err) {
-        next(err);
+        res.status(200).json({ message: "User Updated Successfully!", data: { user } });
+    } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).json({ success: false, message: "Failed to update user" });
     }
 };
 
+// Supprimer un utilisateur (Admin seulement)
 const deleteUser = async (req, res) => {
     try {
-        await UserModel.findByIdAndDelete(req.params.id);
-        res.status(203).json({
-            message: "Users Deleted !!!",
-        });
-    } catch (err) {
-        res.status(400).json({
-            message: "fail",
-            err,
-        });
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
+        const user = await UserModel.findByIdAndDelete(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        res.status(200).json({ message: "User Deleted Successfully!" });
+    } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).json({ success: false, message: "Failed to delete user" });
     }
 };
-module.exports = { 
+
+module.exports = {
     updateProfileController,
-    getAllUsers, 
+    getAllUsers,
     getUserById,
     updateUserController,
-    deleteUser 
+    deleteUser,
 };

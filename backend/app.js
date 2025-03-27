@@ -29,10 +29,12 @@ mongoose.connect(process.env.MONGO_URI)
 // Importation des routes
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
-
+const appointmentRoutes = require("./routes/appointmentRoutes");
 // Définition des routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/appointments", appointmentRoutes);
+
 
 // Middleware de gestion des erreurs
 app.use((err, req, res, next) => {
