@@ -1,7 +1,12 @@
 const mongoose = require('mongoose');
 
 const appointmentSchema = new mongoose.Schema({
-  name  : { type: String, required: true },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User', 
+    required: true,
+  },
+  name: { type: String, required: true },
   lastName: { type: String, required: true },
   gender: { type: String, enum: ['Male', 'Female'], required: true },
   mobile: { type: String, required: true },
@@ -13,7 +18,7 @@ const appointmentSchema = new mongoose.Schema({
   doctor: { type: String, required: true },
   treatment: { type: String, required: true },
   notes: { type: String },
-  images: [{ type: String }], // Stocker les URLs des fichiers
+  images: [{ type: String }],
 }, { timestamps: true });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);

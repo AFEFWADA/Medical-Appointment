@@ -4,11 +4,10 @@ const Appointment = require("../models/Appointment");
 exports.createAppointment = async (req, res) => {
   try {
     const { name, lastName, gender, mobile, email, address, date, fromTime, toTime, doctor, treatment, notes } = req.body;
-
-    // Get the URLs of the uploaded images
     const images = req.files ? req.files.map(file => file.path) : [];
 
     const newAppointment = new Appointment({
+      user: req.user.userId, 
       name,
       lastName,
       gender,
@@ -21,17 +20,20 @@ exports.createAppointment = async (req, res) => {
       doctor,
       treatment,
       notes,
-      images, // Store the image URLs after upload
+      images,
     });
 
     await newAppointment.save();
-    res.status(201).json({ success: true, message: "Rendez-vous enregistré avec succès!", appointment: newAppointment });
 
+    res.status(201).json({
+      success: true,
+      message: "Rendez-vous enregistré avec succès!",
+      appointment: newAppointment,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: "Erreur serveur", error: error.message });
   }
 };
-
 
 
 // Récupérer tous les rendez-vous
@@ -45,12 +47,12 @@ exports.getAllAppointments = async (req, res) => {
   }
 };
 
-// Récupérer tous les rendez-vous ou filtrer par nom du médecin ou du patient
+
 exports.getAppointmentsByName = async (req, res) => {
     try {
-      const searchTerm = req.params.name; // Récupérer le terme de recherche dans l'URL
+      const searchTerm = req.params.name; 
   
-      // Créer une condition de filtre pour la recherche
+      
       const filter = {
         $or: [
           { doctor: { $regex: searchTerm, $options: 'i' } }, // Recherche insensible à la casse pour le nom du médecin
@@ -75,7 +77,6 @@ exports.getAppointmentsByName = async (req, res) => {
   
   
 
-// Récupérer un rendez-vous par ID
 exports.getAppointmentById = async (req, res) => {
   try {
     const appointment = await Appointment.findById(req.params.id);
@@ -91,7 +92,6 @@ exports.getAppointmentById = async (req, res) => {
   }
 };
 
-// Mettre à jour un rendez-vous
 exports.updateAppointment = async (req, res) => {
   try {
     const updatedAppointment = await Appointment.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -107,7 +107,6 @@ exports.updateAppointment = async (req, res) => {
   }
 };
 
-// Supprimer un rendez-vous
 exports.deleteAppointment = async (req, res) => {
   try {
     const deletedAppointment = await Appointment.findByIdAndDelete(req.params.id);
