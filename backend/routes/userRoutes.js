@@ -1,6 +1,11 @@
 const express = require("express");
 const { userAuth, isAdmin, isDoctor, isPatient } = require("../middlewares/authMiddleware");
 const { upload } = require("../middlewares/multerMiddleware");
+const { addDoctor } = require("../Controllers/userController");
+const { getAllDoctors, getAllPatients } = require('../Controllers/userController');
+
+// Example with auth middleware
+
 
 const router = express.Router();
 
@@ -9,7 +14,8 @@ const {
     updateProfileController,
     getUserById,
     updateUserController,
-    deleteUser
+    deleteUser,
+    
 } = require("../Controllers/userController");
 
 // Route pour le dashboard admin
@@ -34,22 +40,10 @@ router.get("/all-users", userAuth, isAdmin, getAllUsers);
 router.get("/user/:id", userAuth, isAdmin, isDoctor, getUserById);
 router.delete("/delete-user/:id", userAuth, deleteUser);
 
-router.get("/all-doctors", userAuth, isAdmin, async (req, res) => {
-    try {
-        const doctors = await UserModel.find({ role: "doctor" }).select("_id name lastName email specialty");
-        res.status(200).json({ success: true, doctors });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Error fetching doctors" });
-    }
-});
 
-router.get("/all-patients", userAuth, isAdmin, async (req, res) => {
-    try {
-        const patients = await UserModel.find({ role: "patient" }).select("_id name lastName email");
-        res.status(200).json({ success: true, patients });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Error fetching patients" });
-    }
-});
+
+router.post("/add-doctor", userAuth, isAdmin, addDoctor);
+router.get("/all-doctors", userAuth, isAdmin, getAllDoctors);
+router.get("/all-patients", userAuth, isAdmin, getAllPatients);
 
 module.exports = router;

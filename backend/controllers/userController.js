@@ -2,7 +2,7 @@ const UserModel = require("../models/UserModel");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
-
+const Doctor = require("../models/Doctor");
 // Récupérer tous les utilisateurs (admin uniquement)
 const getAllUsers = async (req, res) => {
     try {
@@ -139,10 +139,105 @@ const deleteUser = async (req, res) => {
     }
 };
 
+const addDoctor = async (req, res) => {
+    try {
+        const { name, lastName, email, password, specialty, experience } = req.body;
+
+        // Validation des champs
+        if (!name || !lastName || !email || !password || !specialty || !experience) {
+            return res.status(400).json({ success: false, message: "All fields are required" });
+        }
+
+        // Vérifier si l'email est déjà utilisé
+        const emailExists = await Doctor.findOne({ email });
+        if (emailExists) {
+            return res.status(400).json({ success: false, message: "Email already in use" });
+        }
+
+        
+        const doctor = new Doctor({
+            name,
+            lastName,
+            email,
+            password,
+            role: "doctor", 
+            specialty,
+            experience,
+        });
+
+        // Sauvegarder le docteur dans la base de données
+        await doctor.save();
+
+        // Générer un JWT pour le nouvel utilisateur (docteur)
+        const token = doctor.createJWT();
+
+        // Réponse avec le token
+        res.status(201).json({
+            success: true,
+            message: "Doctor added successfully",
+            token,
+            doctor: {
+                id: doctor._id,
+                name: doctor.name,
+                lastName: doctor.lastName,
+                email: doctor.email,
+                specialty: doctor.specialty,
+                experience: doctor.experience,
+            }
+        });
+    } catch (error) {
+        console.error("Error adding doctor:", error);
+        res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+};
+  
+const getAllDoctors = async (req, res) => {
+    try {
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ success: false, message: "Access denied" });
+        }
+
+        const doctors = await UserModel.find({ role: "doctor" }).select("-password");
+
+        res.status(200).json({
+            success: true,
+            count: doctors.length,
+            data: doctors
+        });
+    } catch (error) {
+        console.error("Error fetching doctors:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+
+const getAllPatients = async (req, res) => {
+    try {
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ success: false, message: "Access denied" });
+        }
+
+        const patients = await UserModel.find({ role: "patient" }).select("-password");
+
+        res.status(200).json({
+            success: true,
+            count: patients.length,
+            data: patients
+        });
+    } catch (error) {
+        console.error("Error fetching patients:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+
+
+
 module.exports = {
     updateProfileController,
     getAllUsers,
     getUserById,
     updateUserController,
     deleteUser,
+    addDoctor,
+    getAllDoctors,
+    getAllPatients,
 };

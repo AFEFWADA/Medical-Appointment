@@ -30,6 +30,7 @@ mongoose.connect(process.env.MONGO_URI)
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
+
 // Définition des routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);

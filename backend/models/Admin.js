@@ -6,12 +6,7 @@ const AdminSchema = new mongoose.Schema(
   {
     permissions: {
       type: [String],
-      validate: {
-        validator: function (permissions) {
-          return !permissions || permissions.length > 0;
-        },
-        message: "Admin must have at least one permission",
-      },
+      default: ["view_dashboard"]
     },
   },
   { timestamps: true }
